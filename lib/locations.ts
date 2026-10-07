@@ -92,6 +92,7 @@ async function lookupDataGovPostalRecords(field: 'pincode' | 'officename', value
       console.warn('[Data.gov.in postal API] Response has no records array', Object.keys(payload));
       return [];
     }
+    console.info(`[Data.gov.in postal API] ${field} lookup returned ${payload.records.length} records`);
     const locations = payload.records.flatMap((record) => {
       const location = mapDataGovRecord(record);
       return location ? [location] : [];
@@ -100,7 +101,8 @@ async function lookupDataGovPostalRecords(field: 'pincode' | 'officename', value
       `${location.pincode}:${location.locality}:${location.district}`,
       location,
     ])).values()];
-  } catch {
+  } catch (error) {
+    console.warn('[Data.gov.in postal API] Request failed', error instanceof Error ? error.name : 'UnknownError');
     return [];
   }
 }

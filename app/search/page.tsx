@@ -10,6 +10,8 @@ export default async function SearchPage({ searchParams }: Props) {
   const resultSource = matches[0]?.source;
   const sourceDescription = resultSource === 'data-gov-in'
     ? 'Results from the Government of India Open Government Data portal (Department of Posts). The directory is updated periodically; confirm important postal details with India Post.'
+    : resultSource === 'postal-api' && process.env.DATA_GOV_IN_API_KEY
+      ? 'The official directory key is configured, but its request returned no usable records. These results are from the third-party fallback; check the Data.gov.in key and API response.'
     : resultSource === 'postal-api'
       ? 'Results from a third-party postal lookup fallback. Verify official details with India Post.'
       : process.env.DATA_GOV_IN_API_KEY
