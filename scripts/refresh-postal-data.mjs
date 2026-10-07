@@ -44,7 +44,11 @@ async function getPage(offset) {
       if (attempt < 2) await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000 * (attempt + 1)));
     }
   }
-  throw new Error(`Data.gov.in request failed at offset ${offset}: ${lastError instanceof Error ? lastError.name : 'UnknownError'}`);
+  const cause = lastError instanceof Error && 'cause' in lastError && lastError.cause && typeof lastError.cause === 'object'
+    ? lastError.cause
+    : undefined;
+  const causeCode = cause && 'code' in cause && typeof cause.code === 'string' ? cause.code : 'NoNetworkCode';
+  throw new Error(`Data.gov.in request failed at offset ${offset}: ${lastError instanceof Error ? lastError.name : 'UnknownError'} (${causeCode})`);
 }
 
 const offices = new Map();
