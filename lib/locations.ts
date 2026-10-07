@@ -102,7 +102,15 @@ async function lookupDataGovPostalRecords(field: 'pincode' | 'officename', value
       location,
     ])).values()];
   } catch (error) {
-    console.warn('[Data.gov.in postal API] Request failed', error instanceof Error ? error.name : 'UnknownError');
+    const cause = error instanceof Error && 'cause' in error && error.cause && typeof error.cause === 'object'
+      ? error.cause as { code?: unknown; syscall?: unknown }
+      : undefined;
+    console.warn(
+      '[Data.gov.in postal API] Request failed',
+      error instanceof Error ? error.name : 'UnknownError',
+      typeof cause?.code === 'string' ? cause.code : 'NoNetworkCode',
+      typeof cause?.syscall === 'string' ? cause.syscall : 'NoSystemCall',
+    );
     return [];
   }
 }
