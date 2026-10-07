@@ -61,9 +61,6 @@ async function geocode(location: DirectoryLocation): Promise<DirectoryLocation> 
 export async function getLocationByPincode(pincode: string): Promise<DirectoryLocation | null> {
   if (!/^\d{6}$/.test(pincode)) return null;
 
-  const sample = findDemoLocation(pincode);
-  if (sample) return sample;
-
   try {
     const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
       next: { revalidate: 60 * 60 * 24 },
@@ -80,7 +77,9 @@ export async function getLocationByPincode(pincode: string): Promise<DirectoryLo
       }> | null;
     }>;
     const office = results[0]?.PostOffice?.[0];
-    if (results[0]?.Status !== 'Success' || !office?.Name || !office.District || !office.State) return null;
+    if (results[0]?.Status !== 'Success' || !office?.Name || !office.District || !office.State) {
+      return findDemoLocation(pincode) ?? null;
+    }
 
     return geocode({
       pincode,
@@ -91,7 +90,54 @@ export async function getLocationByPincode(pincode: string): Promise<DirectoryLo
       source: 'postal-api',
     });
   } catch {
-    return null;
+    return findDemoLocation(pincode) ?? null;
+  }
+}
+
+export async function searchPostalLocations(query: string): Promise<DirectoryLocation[]> {
+  const value = query.trim().slice(0, 80);
+  if (value.length < 3) return [];
+
+  const pincode = value.match(/\b\d{6}\b/)?.[0];
+  const endpoint = pincode
+    ? `https://api.postalpincode.in/pincode/${pincode}`
+    : `https://api.postalpincode.in/postoffice/${encodeURIComponent(value)}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      next: { revalidate: 60 * 60 * 24 },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return [];
+
+    const results = (await response.json()) as Array<{
+      Status?: string;
+      PostOffice?: Array<{
+        Name?: string;
+        District?: string;
+        State?: string;
+        Circle?: string;
+        Pincode?: string;
+      }> | null;
+    }>;
+    const offices = results[0]?.Status === 'Success' ? results[0].PostOffice ?? [] : [];
+    const locations = offices.flatMap((office) => {
+      if (!office.Name || !office.District || !office.State || !/^\d{6}$/.test(office.Pincode ?? '')) return [];
+      return [{
+        pincode: office.Pincode!,
+        locality: office.Name.trim(),
+        district: office.District,
+        state: office.State,
+        circle: office.Circle ?? 'Not listed',
+        source: 'postal-api' as const,
+      }];
+    });
+    return [...new Map(locations.map((location) => [
+      `${location.pincode}:${location.locality}:${location.district}`,
+      location,
+    ])).values()].slice(0, 30);
+  } catch {
+    return [];
   }
 }
 

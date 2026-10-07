@@ -4,6 +4,7 @@ import {
   findDemoLocation,
   getLocationByPincode,
   locationPath,
+  searchPostalLocations,
   slugify,
 } from '../lib/locations';
 
@@ -36,12 +37,19 @@ describe('location directory helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('returns the local demo record without using the network', async () => {
-    const fetchMock = vi.fn();
+  it('uses the live postal API before falling back to the sample record', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([{
+      Status: 'Success',
+      PostOffice: [{ Name: 'New Delhi', District: 'New Delhi', State: 'Delhi', Circle: 'Delhi' }],
+    }]));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(getLocationByPincode('500001')).resolves.toEqual(demoLocations[0]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(getLocationByPincode('500001')).resolves.toMatchObject({
+      pincode: '500001',
+      locality: 'New Delhi',
+      source: 'postal-api',
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('looks up a postal record and geocodes it when a server key is configured', async () => {
@@ -73,5 +81,21 @@ describe('location directory helpers', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json([{ Status: 'Error', PostOffice: null }])));
 
     await expect(getLocationByPincode('123456')).resolves.toBeNull();
+  });
+
+  it('searches post-office names against the live postal API', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json([{
+      Status: 'Success',
+      PostOffice: [{ Name: 'Hyderabad GPO', District: 'Hyderabad', State: 'Telangana', Circle: 'Telangana', Pincode: '500001' }],
+    }])));
+
+    await expect(searchPostalLocations('Hyderabad')).resolves.toEqual([{
+      pincode: '500001',
+      locality: 'Hyderabad GPO',
+      district: 'Hyderabad',
+      state: 'Telangana',
+      circle: 'Telangana',
+      source: 'postal-api',
+    }]);
   });
 });
