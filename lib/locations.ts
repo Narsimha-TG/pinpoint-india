@@ -1,3 +1,5 @@
+import postalDataset from '../data/postal-locations.json';
+
 export type DirectoryLocation = {
   pincode: string;
   locality: string;
@@ -8,6 +10,8 @@ export type DirectoryLocation = {
   longitude?: number;
   source: 'demo' | 'postal-api' | 'data-gov-in';
 };
+
+const officialPostalLocations = postalDataset as DirectoryLocation[];
 
 // Small, explicitly labeled starter dataset. Replace or extend with a verified India Post dataset.
 export const demoLocations: DirectoryLocation[] = [
@@ -139,6 +143,9 @@ async function geocode(location: DirectoryLocation): Promise<DirectoryLocation> 
 export async function getLocationByPincode(pincode: string): Promise<DirectoryLocation | null> {
   if (!/^\d{6}$/.test(pincode)) return null;
 
+  const indexedLocation = officialPostalLocations.find((location) => location.pincode === pincode);
+  if (indexedLocation) return indexedLocation;
+
   const governmentLocations = await lookupDataGovPostalRecords('pincode', pincode);
   if (governmentLocations.length) return governmentLocations[0];
 
@@ -180,6 +187,12 @@ export async function searchPostalLocations(query: string): Promise<DirectoryLoc
   if (value.length < 3) return [];
 
   const pincode = value.match(/\b\d{6}\b/)?.[0];
+  const normalizedQuery = value.toLocaleLowerCase();
+  const indexedResults = officialPostalLocations.filter((location) => pincode
+    ? location.pincode === pincode
+    : location.locality.toLocaleLowerCase().includes(normalizedQuery));
+  if (indexedResults.length) return indexedResults.slice(0, 30);
+
   if (process.env.DATA_GOV_IN_API_KEY) {
     const governmentLocations = await lookupDataGovPostalRecords(pincode ? 'pincode' : 'officename', pincode ?? value);
     if (governmentLocations.length) return governmentLocations.slice(0, 30);
