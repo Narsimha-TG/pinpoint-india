@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { demoLocations, locationPath, slugify } from '@/lib/locations';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://pinpoint-india.vercel.app';
   const urls: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: 'weekly', priority: 1 },
     { url: `${base}/india`, changeFrequency: 'weekly', priority: 0.8 },
