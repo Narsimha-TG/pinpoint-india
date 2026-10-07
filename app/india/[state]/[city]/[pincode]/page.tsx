@@ -92,7 +92,7 @@ export default async function PincodePage({ params }: Props) {
         <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">Home</Link><span>/</span><Link href="/india">India</Link><span>/</span><Link href={`/india/${state}`}>{location.state}</Link><span>/</span><Link href={`/india/${state}/${city}`}>{location.district}</Link><span>/</span><span>{pincode}</span></nav>
         <section className="pincode-hero">
           <div className="pincode-copy">
-            <p className="eyebrow">LOCAL POSTAL GUIDE <span className="source-pill">{location.source === 'demo' ? 'SAMPLE DATA' : 'POSTAL LOOKUP'}</span></p>
+            <p className="eyebrow">LOCAL POSTAL GUIDE <span className="source-pill">{location.source === 'demo' ? 'SAMPLE DATA' : location.source === 'data-gov-in' ? 'GOVERNMENT DATA' : 'POSTAL LOOKUP'}</span></p>
             <h1>Know your<br /><em>{location.locality}.</em></h1>
             <p className="pincode-summary">A quick guide to postal details and nearby essentials around {location.locality}, {location.district}.</p>
             <div className="pincode-code"><span>PINCODE</span><strong>{pincode}</strong><span className="pin-india">INDIA <b>✳</b></span></div>
@@ -107,7 +107,7 @@ export default async function PincodePage({ params }: Props) {
         <PlacesExplorer location={location} />
         <section className="faq-section"><div className="section-heading"><div><p className="eyebrow">GOOD TO KNOW</p><h2>Local questions, answered.</h2></div><span className="section-note">About {location.locality}</span></div><div className="faq-list"><details><summary>What is the pincode of {location.locality}?<span>＋</span></summary><p>The pincode listed for {location.locality}, {location.district}, {location.state} is <strong>{pincode}</strong>. Verify official postal information with India Post.</p></details><details><summary>Which government offices are located near {pincode}?<span>＋</span></summary><p>Choose the Government filter above to see nearby listings from Google Places, when available. Listing coverage can be incomplete; contact the office before your visit.</p></details><details><summary>Which district and state does {pincode} belong to?<span>＋</span></summary><p>{pincode} is listed under {location.district} district in {location.state}, India.</p></details></div></section>
       <LocationChatbot location={location} />
-        <aside className="source-note">Postal lookup source: India Post Pincode API. Map locations and nearby business details: Google Maps Platform. Information can be incomplete or change; independently verify important details.</aside>
+        <aside className="source-note">Postal lookup source: {location.source === 'data-gov-in' ? 'Government of India Open Government Data (Department of Posts)' : location.source === 'demo' ? 'sample preview record' : 'third-party postal lookup service'}. Map locations and nearby business details: Google Maps Platform. Information can be incomplete or change; independently verify important details.</aside>
       </div>
     </article>
   );

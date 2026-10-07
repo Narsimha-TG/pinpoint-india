@@ -52,6 +52,27 @@ describe('location directory helpers', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it('uses the official Data.gov.in pincode directory when its server key is configured', async () => {
+    vi.stubEnv('DATA_GOV_IN_API_KEY', 'test-data-gov-key');
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      records: [{ officename: 'New Delhi', pincode: '500001', district: 'New Delhi', statename: 'Delhi', circlename: 'Delhi' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLocationByPincode('500001')).resolves.toEqual({
+      pincode: '500001',
+      locality: 'New Delhi',
+      district: 'New Delhi',
+      state: 'Delhi',
+      circle: 'Delhi',
+      source: 'data-gov-in',
+    });
+    const requestUrl = new URL(fetchMock.mock.calls[0][0] as URL);
+    expect(requestUrl.hostname).toBe('api.data.gov.in');
+    expect(requestUrl.searchParams.get('filters[pincode]')).toBe('500001');
+    expect(requestUrl.searchParams.get('api-key')).toBe('test-data-gov-key');
+  });
+
   it('looks up a postal record and geocodes it when a server key is configured', async () => {
     vi.stubEnv('GOOGLE_MAPS_API_KEY', 'test-server-key');
     const fetchMock = vi.fn()
@@ -97,5 +118,21 @@ describe('location directory helpers', () => {
       circle: 'Telangana',
       source: 'postal-api',
     }]);
+  });
+
+  it('searches office names in the official directory when its server key is configured', async () => {
+    vi.stubEnv('DATA_GOV_IN_API_KEY', 'test-data-gov-key');
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      records: [{ officename: 'Hyderabad GPO', district: 'Hyderabad', statename: 'Telangana', circlename: 'Telangana', pincode: '500001' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(searchPostalLocations('Hyderabad GPO')).resolves.toMatchObject([{
+      pincode: '500001',
+      locality: 'Hyderabad GPO',
+      source: 'data-gov-in',
+    }]);
+    const requestUrl = new URL(fetchMock.mock.calls[0][0] as URL);
+    expect(requestUrl.searchParams.get('filters[officename]')).toBe('Hyderabad GPO');
   });
 });

@@ -6,7 +6,7 @@ export type DirectoryLocation = {
   circle: string;
   latitude?: number;
   longitude?: number;
-  source: 'demo' | 'postal-api';
+  source: 'demo' | 'postal-api' | 'data-gov-in';
 };
 
 // Small, explicitly labeled starter dataset. Replace or extend with a verified India Post dataset.
@@ -37,6 +37,67 @@ export function findDemoLocation(pincode: string): DirectoryLocation | undefined
   return demoLocations.find((location) => location.pincode === pincode);
 }
 
+type DataGovRecord = Record<string, unknown>;
+
+function getRecordValue(record: DataGovRecord, ...names: string[]): string | undefined {
+  for (const name of names) {
+    const key = Object.keys(record).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+    const value = key ? record[key] : undefined;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const text = String(value).trim();
+      if (text) return text;
+    }
+  }
+  return undefined;
+}
+
+function mapDataGovRecord(record: DataGovRecord): DirectoryLocation | null {
+  const pincode = getRecordValue(record, 'pincode', 'pin_code', 'pin code');
+  const locality = getRecordValue(record, 'officename', 'office_name', 'office name', 'name');
+  const district = getRecordValue(record, 'district', 'districtname', 'district_name');
+  const state = getRecordValue(record, 'statename', 'state_name', 'state');
+  if (!pincode || !/^\d{6}$/.test(pincode) || !locality || !district || !state) return null;
+
+  return {
+    pincode,
+    locality,
+    district,
+    state,
+    circle: getRecordValue(record, 'circlename', 'circle_name', 'circle') ?? 'Not listed',
+    source: 'data-gov-in',
+  };
+}
+
+async function lookupDataGovPostalRecords(field: 'pincode' | 'officename', value: string): Promise<DirectoryLocation[]> {
+  const apiKey = process.env.DATA_GOV_IN_API_KEY;
+  if (!apiKey) return [];
+
+  const url = new URL('https://api.data.gov.in/resource/6176ee09-3d56-4a3b-8115-21841576b2f6');
+  url.searchParams.set('api-key', apiKey);
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('limit', '100');
+  url.searchParams.set(`filters[${field}]`, value);
+
+  try {
+    const response = await fetch(url, {
+      next: { revalidate: 60 * 60 * 24 },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return [];
+    const payload = (await response.json()) as { records?: DataGovRecord[] };
+    const locations = (payload.records ?? []).flatMap((record) => {
+      const location = mapDataGovRecord(record);
+      return location ? [location] : [];
+    });
+    return [...new Map(locations.map((location) => [
+      `${location.pincode}:${location.locality}:${location.district}`,
+      location,
+    ])).values()];
+  } catch {
+    return [];
+  }
+}
+
 async function geocode(location: DirectoryLocation): Promise<DirectoryLocation> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key || (location.latitude !== undefined && location.longitude !== undefined)) return location;
@@ -60,6 +121,9 @@ async function geocode(location: DirectoryLocation): Promise<DirectoryLocation> 
 
 export async function getLocationByPincode(pincode: string): Promise<DirectoryLocation | null> {
   if (!/^\d{6}$/.test(pincode)) return null;
+
+  const governmentLocations = await lookupDataGovPostalRecords('pincode', pincode);
+  if (governmentLocations.length) return governmentLocations[0];
 
   try {
     const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
@@ -99,6 +163,11 @@ export async function searchPostalLocations(query: string): Promise<DirectoryLoc
   if (value.length < 3) return [];
 
   const pincode = value.match(/\b\d{6}\b/)?.[0];
+  if (process.env.DATA_GOV_IN_API_KEY) {
+    const governmentLocations = await lookupDataGovPostalRecords(pincode ? 'pincode' : 'officename', pincode ?? value);
+    if (governmentLocations.length) return governmentLocations.slice(0, 30);
+  }
+
   const endpoint = pincode
     ? `https://api.postalpincode.in/pincode/${pincode}`
     : `https://api.postalpincode.in/postoffice/${encodeURIComponent(value)}`;
