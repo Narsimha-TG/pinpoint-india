@@ -83,9 +83,16 @@ async function lookupDataGovPostalRecords(field: 'pincode' | 'officename', value
       next: { revalidate: 60 * 60 * 24 },
       signal: AbortSignal.timeout(8000),
     });
-    if (!response.ok) return [];
+      if (!response.ok) {
+        console.warn(`[Data.gov.in postal API] HTTP ${response.status}`);
+        return [];
+      }
     const payload = (await response.json()) as { records?: DataGovRecord[] };
-    const locations = (payload.records ?? []).flatMap((record) => {
+    if (!Array.isArray(payload.records)) {
+      console.warn('[Data.gov.in postal API] Response has no records array', Object.keys(payload));
+      return [];
+    }
+    const locations = payload.records.flatMap((record) => {
       const location = mapDataGovRecord(record);
       return location ? [location] : [];
     });

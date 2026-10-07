@@ -7,7 +7,7 @@ import SEOStructuredData from '@/components/SEOStructuredData';
 import { demoLocations, getLocationByPincode, locationPath, slugify } from '@/lib/locations';
 
 type Props = { params: Promise<{ state: string; city: string; pincode: string }> };
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pinpoint-india.vercel.app';
 
 export async function generateStaticParams() {
   return demoLocations.map((location) => ({ state: slugify(location.state), city: slugify(location.district), pincode: location.pincode }));
